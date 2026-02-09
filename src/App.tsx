@@ -1,5 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { getAuthToken } from './api/client'
+import { registerLogoutNavigate } from './api/client'
 import Login from './screens/Login'
 import LoginSuccess from './screens/LoginSuccess'
 import Home from './screens/Home'
@@ -12,6 +14,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    registerLogoutNavigate(navigate)
+    return () => registerLogoutNavigate(null)
+  }, [navigate])
+
   return (
     <div className="app">
       <Routes>

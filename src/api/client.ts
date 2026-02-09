@@ -55,6 +55,18 @@ export function getAuthToken(): string | null {
   return localStorage.getItem('access_token') || localStorage.getItem('token');
 }
 
+// Client-side redirect to /login (avoids 404 when hosted SPA has no server route for /login)
+type NavigateFn = (path: string) => void;
+let logoutNavigate: NavigateFn | null = null;
+export function registerLogoutNavigate(nav: NavigateFn | null) {
+  logoutNavigate = nav;
+}
+export function redirectToLogin() {
+  if (typeof window === 'undefined') return;
+  if (logoutNavigate) logoutNavigate('/login');
+  else window.location.href = '/login';
+}
+
 // Response interceptor for debugging and 401 handling
 api.interceptors.response.use(
   (response) => {
@@ -84,7 +96,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       setAuthToken(null);
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+        redirectToLogin();
       }
     }
     

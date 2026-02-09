@@ -92,12 +92,14 @@ export async function login(credentials: LoginRequest): Promise<{ success: true;
   }
 }
 
+import { redirectToLogin } from './client';
+
 export function logout() {
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('token'); // Legacy cleanup
   setAuthToken(null);
   if (typeof window !== 'undefined') {
-    window.location.href = '/login';
+    redirectToLogin();
   }
 }
