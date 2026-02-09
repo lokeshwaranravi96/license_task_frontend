@@ -5,16 +5,6 @@ import { getOrdersList, type OrderRecord } from '../api/orders'
 
 const PAGE_SIZE = 10
 
-function formatDate(iso?: string): string {
-  if (!iso) return '—'
-  try {
-    const d = new Date(iso)
-    return d.toLocaleDateString(undefined, { dateStyle: 'medium' })
-  } catch {
-    return iso
-  }
-}
-
 function formatDateShort(iso?: string): string {
   if (!iso) return '—'
   try {
