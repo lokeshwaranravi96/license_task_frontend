@@ -241,7 +241,7 @@ export default function PurchaseLicense() {
     const purchaseDate = today.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     const formatBilling = (d: Date) => `${d.getDate().toString().padStart(2, '0')}-${d.toLocaleString('en', { month: 'short' })}-${d.getFullYear()}`
     const billingStart = today
-    const billingEnd = activeOrder?.expiry ? new Date(activeOrder.expiry) : (() => { const d = new Date(today); d.setMonth(d.getMonth() + 1); return d })()
+    const billingEnd = activeOrder?.expiry ? new Date(activeOrder.expiry) : (() => { const d = new Date(today); d.setMonth(d.getMonth() + 1);d.setDate(d.getDate() - 1);  return d })()
     const billingPeriod = `${formatBilling(billingStart)} to ${formatBilling(billingEnd)}`
     return (
       <div className="container">
