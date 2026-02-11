@@ -148,3 +148,37 @@ export async function getOrdersList(
     return { success: false, message: 'Network or unknown error.' }
   }
 }
+
+// --- Order invoice download (returns base64 HTML) ---
+
+export interface OrderDownloadResponse {
+  data?: string
+  status?: number
+  api_status?: string
+  message?: string
+  [key: string]: unknown
+}
+
+export async function downloadOrderInvoice(
+  orderId: string
+): Promise<
+  | { success: true; data: string }
+  | { success: false; message: string; status?: number }
+> {
+  try {
+    const response = await api.get<OrderDownloadResponse>('/orders/download', {
+      params: { id: orderId },
+    })
+    const base64 = response.data?.data
+    if (typeof base64 !== 'string') {
+      return { success: false, message: 'Invalid download response.' }
+    }
+    return { success: true, data: base64 }
+  } catch (e) {
+    if (isAxiosError(e)) {
+      const msg = (e.response?.data as { message?: string })?.message || getStatusMessage(e.response?.status ?? 0)
+      return { success: false, message: msg, status: e.response?.status }
+    }
+    return { success: false, message: 'Network or unknown error.' }
+  }
+}

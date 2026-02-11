@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 import { logout } from '../api/auth'
-import { getOrdersList, type OrderRecord } from '../api/orders'
+import { getOrdersList, downloadOrderInvoice, type OrderRecord } from '../api/orders'
 
 const PAGE_SIZE = 10
 
@@ -14,14 +16,78 @@ function formatDateShort(iso?: string): string {
   }
 }
 
+/** Decode base64 HTML from API and download as PDF */
+async function downloadInvoiceAsPdf(base64Html: string, filename: string): Promise<void> {
+  const htmlString = atob(base64Html)
+  const container = document.createElement('div')
+  container.innerHTML = htmlString
+  container.style.position = 'fixed'
+  container.style.left = '-9999px'
+  container.style.top = '0'
+  container.style.width = '800px'
+  container.style.background = '#fff'
+  document.body.appendChild(container)
+
+  try {
+    const canvas = await html2canvas(container, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#f5f7fb',
+    })
+    const imgData = canvas.toDataURL('image/png')
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const imgWidth = pageWidth
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    let heightLeft = imgHeight
+    let position = 0
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+    heightLeft -= pageHeight
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight
+      pdf.addPage()
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+    }
+    pdf.save(filename)
+  } finally {
+    document.body.removeChild(container)
+  }
+}
+
 export default function Transactions() {
   const [list, setList] = useState<OrderRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadingMoreRef = useRef(false)
+
+  const handleDownload = useCallback(async (order: OrderRecord) => {
+    setDownloadError(null)
+    setDownloadingId(order.id)
+    const result = await downloadOrderInvoice(order.id)
+    if (result.success) {
+      try {
+        const filename = `invoice-${order.invoice_no ?? order.id}.pdf`
+        await downloadInvoiceAsPdf(result.data, filename)
+      } catch (e) {
+        setDownloadError(e instanceof Error ? e.message : 'Failed to generate PDF.')
+      }
+    } else {
+      setDownloadError(result.message)
+    }
+    setDownloadingId(null)
+  }, [])
 
   const loadPage = useCallback(async (offset: number, append: boolean) => {
     if (append) {
@@ -88,6 +154,11 @@ export default function Transactions() {
 
         {loading && <p>Loading…</p>}
         {error && <div className="alert alert-error">{error}</div>}
+        {downloadError && (
+          <div className="alert alert-error" style={{ marginBottom: '1rem' }}>
+            {downloadError}
+          </div>
+        )}
         {!loading && !error && list.length === 0 && (
           <p style={{ color: '#6b7280' }}>No transactions yet.</p>
         )}
@@ -111,6 +182,15 @@ export default function Transactions() {
                     ${order.total_amount != null ? Number(order.total_amount).toFixed(2) : '—'}
                   </span>
                   <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>{order.payment_status?.name ?? '—'}</span>
+                  <button
+                    type="button"
+                    className="btn btn-small"
+                    disabled={downloadingId === order.id}
+                    onClick={() => handleDownload(order)}
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    {downloadingId === order.id ? 'Downloading…' : 'Download'}
+                  </button>
                 </div>
                 {order.order_items?.length ? (
                   <ul style={{ margin: 0, paddingLeft: '1.25rem', listStyle: 'disc' }}>
